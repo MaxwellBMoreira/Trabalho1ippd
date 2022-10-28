@@ -101,6 +101,7 @@ int main(int argc, char *argv[]){
 	float frameSize=WIDTH*HEIGHT;
 
     int blockCounter=0;
+    int blocosIguais=0;
     int l,c,i,j,ii,jj,pixelDif;
 
     //leitura frame referencia
@@ -136,7 +137,9 @@ int main(int argc, char *argv[]){
             SE ENCONTROU = ANOTA O DESLOCAMENTO
 
             */
-    //INICIA O LOOP PARA PERCORRER TODO O FRAME frameAtual        
+    //INICIA O LOOP PARA PERCORRER TODO O FRAME frameAtual 
+    //PARALELIZANDO AQUI, CADA THREAD FICA COM UM BLOCO PARA PROCURAR EM SUA VIZINHANÇA
+           
         for(l=0;l<HEIGHT;l=l+8)
         {
             for(c=0;c<WIDTH;c=c+8)
@@ -147,11 +150,11 @@ int main(int argc, char *argv[]){
                     for(j=0;j<8;j++)
                     {
                         blocoProcurado[i][j]=frameAtual[l+i][c+j];
-                        printf("%d |",blocoProcurado[i][j]);
+                        //printf("%d |",blocoProcurado[i][j]);
                     }
-                    printf("\n");
+                    //printf("\n");
                 }
-                printf("Bloco que desejmos procurar foi montado\n");
+                //printf("Bloco que desejmos procurar foi montado\n");
 
 
             //PERCORRE A VIZINHANÇA DO BLOCO frameAtual (1 BLOCO DE OFFSET)
@@ -172,27 +175,28 @@ int main(int argc, char *argv[]){
                         for(ii=0;ii<8;ii++){
                             for(jj=0;jj<8;jj++){
                                 blocoNoFrameRef[ii][jj]=frameReferencia[ii+i][jj+j];
-                                printf("%d |",blocoNoFrameRef[ii][jj]);
+                                //printf("%d |",blocoNoFrameRef[ii][jj]);
                             }
-                            printf("\n");
+                            //printf("\n");
                         }
 
-                        printf("Bloco comparacao montado\n");
+                        //printf("Bloco comparacao montado\n");
 
                         pixelDif=0;//VALOR DE TOLERANCIA/DIFERENÇA ACEITAVEL ENTRE OS BLOCOS
                         for(ii=0;ii<8;ii++){
                             for(jj=0;jj<8;jj++){
-                                printf("|%d-%d|=%d\n",blocoNoFrameRef[ii][jj],blocoProcurado[ii][jj],abs(blocoNoFrameRef[ii][jj]-blocoProcurado[ii][jj]));
+                                //printf("|%d-%d|=%d\n",blocoNoFrameRef[ii][jj],blocoProcurado[ii][jj],abs(blocoNoFrameRef[ii][jj]-blocoProcurado[ii][jj]));
                                 pixelDif=pixelDif+abs(blocoNoFrameRef[ii][jj]-blocoProcurado[ii][jj]);
                             }
-                            printf("\n");
-                            system("pause");
+                            //printf("\n");
+                            //system("pause");
                         }
-                        system("pause");
-                        printf("Diferenca: %d\n",pixelDif);
-                        if(pixelDif<1000){//SE A DIFERENÇA FOR MENOR QUE MIL, CONSIDERA OS BLOCOS POSSIVELMENTE IGUAIS
+                        //system("pause");
+                        //printf("Diferenca: %d\n",pixelDif);
+                        if(pixelDif<500){//SE A DIFERENÇA FOR MENOR QUE 500, CONSIDERA OS BLOCOS POSSIVELMENTE IGUAIS
                             printf("Blocos possivelmente iguais\n");
-                            system("pause");
+                            blocosIguais++;
+                            //system("pause");
                         }
 
                         blockCounter++;
@@ -205,9 +209,12 @@ int main(int argc, char *argv[]){
                 }
                 printf("Bloco nao encontrado na vizinhanca, %d blocos analizados\n",blockCounter/8);
                 blockCounter=0;
-                system("pause");
+                //system("pause");
             }
         }
+        printf("Blocos iguais : %d" ,blocosIguais);
+        blocosIguais=0;
+        system("pause");
         printf("Novo Frame!!\n");
     }
 
@@ -220,12 +227,12 @@ int main(int argc, char *argv[]){
                         }
                         printf("\n");
                     }
-                    system("pause");
+                    //system("pause");
 
 
                     if(memcmp(blocoProcurado,blocoNoFrameRef,sizeof(blocoNoFrameRef))==0){
                         printf("Blocos sao iguais");
-                        system("pause");
+                        //system("pause");
                     }
                     else
                     {

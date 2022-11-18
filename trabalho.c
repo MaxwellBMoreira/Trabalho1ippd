@@ -1,3 +1,10 @@
+/*Membros do Grupo
+Gabriel Heifel
+Maxwell Moreira
+Rafael Martins
+Willians Júnior
+*/
+
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -5,78 +12,118 @@
 #include <time.h>
 #include <omp.h>
 
-#define WIDTH 176
-#define HEIGHT 144
+#define WIDTH 640
+#define HEIGHT 360
+#define blockSize 8
     
 
 unsigned char frameReferencia[WIDTH][HEIGHT];
 unsigned char frameAtual[WIDTH][HEIGHT];
 unsigned char U[WIDTH/2][HEIGHT/2];
 unsigned char V[WIDTH/2][HEIGHT/2];
-unsigned char blocoProcurado[8][8];
-unsigned char blocoNoFrameRef[8][8];
+unsigned char blocoProcurado[blockSize][blockSize];
+unsigned char blocoNoFrameRef[blockSize][blockSize];
 unsigned char matrizVizinha[24][24];
+FILE *outVectors;
 
 
 
+int procuraNaVizinhanca(int beginLine, int beginCol, float tolerancia){
 
-int readYUV(const char *filename)
-{
-	/*
-	//*Y = malloc(frameSize*sizeof(int));
+    int linJanViz,colJanViz,i,j;
+    float somaErros,erroMedioGeral;
 
-	
-    /*for(int i=0;i<frameSize;i++){
-        Y[i]=i+1;
-    }*/
+    for (linJanViz = beginLine - 8;linJanViz < beginLine + 16;linJanViz++)//loop que percorre a janela de vizinhan�a, definida por 1 bloco inteiro ao redor do procurado
+        {
+            for (colJanViz = beginCol - 8;colJanViz < beginCol + 16;colJanViz++)
+            {
+                if (linJanViz<0 || colJanViz<0 || linJanViz>HEIGHT || colJanViz >WIDTH) {//ISSO EVITA QUE ELE VERIFIQUE VALORES DE FORA DA MATRIZ (LIXO)
+                    
+                }
+                else
+                {
 
-    //printf("!!!!\n");
+                    //Aqui eu monto o bloco no frame referencia para fazer a compara��o com o bloco que procuro
+                    //Deve ser levado em conta a posi��o na janela de vizinhan�a que esta sendo verificado
+                    for (i = 0;i < 8;i++) {
+                        for (j = 0;j < 8;j++) {
+                            if (i<0 || j<0 || i>HEIGHT || j >WIDTH) {//ISSO EVITA QUE ELE VERIFIQUE VALORES DE FORA DA MATRIZ (LIXO)
+                                blocoNoFrameRef[i][j] = 0;
+                            }
+                            else {
+                                blocoNoFrameRef[i][j] = frameReferencia[i + linJanViz][j + colJanViz];
+                            }         
+                        }
+                    }
 
-	/*if (frame != frameSize) {
-		perror("Error reading yuv image");
-		fclose(fp);
-		return 3;
-	}
+                    
+
+                    somaErros = 0; //VAR que acumula a diferen�a entre os blocos
+                    //Aqui eu realizo a compra��o entre os blocos
+                    for (i = 0;i < 8;i++) {
+                        for (j = 0;j < 8;j++) {
+                            somaErros += abs(blocoProcurado[i][j]-blocoNoFrameRef[i][j]);
+                        }
+                    }
+
+                    erroMedioGeral = somaErros / 64; //Calcula a media do erro
 
 
-    printf("Filename: %s \nWidth: %d \nHEIGHT: %d \nFrameSize: %d\n",filename,WIDTH,HEIGHT,frameSize);
-    int teste;
-    scanf("%d",&teste);
-    
 
-    
-
-    printf("Frame 1\n");
-
-    
-    //fread(UV, sizeof(unsigned char[WIDTH/2][HEIGHT/2]), 1, fp); //LER TAMANHO UV PARA SER DESCARTADO
-    printf("Lido UV 1\n");
-    scanf("%d",&teste);
-    fread(Y2, sizeof(unsigned char[WIDTH][HEIGHT]), 1, fp); //LE SEGUNDO FRAME
-    printf("Lido Frame 2\n");
-    scanf("%d",&teste);
-    
-    for(i=0;i<WIDTH;i++){
-        printf("\n");
-        for(j=0;j<HEIGHT;j++){
-            //printf("[%d/%d=%d]  ",i,j,Y[i*HEIGHT+j]);
-            printf("%d  ",Y2[i][j]);
+                    if (erroMedioGeral < tolerancia) { //se a media for menor que a tolerancia estabelecida considero os blocos iguais
+                        #pragma omp critical
+                        {
+                        fprintf(outVectors,"Ra[%d][%d] > Rv[%d][%d] \n", beginLine, beginCol, linJanViz, colJanViz);
+                        }
+                        return 1; //se o bloco ja foi encontrado, entao a thread pode avan�ar para o proximo bloco
+                    }     
+                }
+            }
         }
- 
-    }
-
-	
-	return 0;
-*/
+    return 0;
 }
 
+int procuraBlocoNaLinha(int beginLine){
+    
+    int i, j;
+    
+
+    double tolerancia;
+    int beginCol;
+    int blocosEncontrados=0;
+    int res=0;
+
+    tolerancia = 1.5;//define a tolerancia no erro relativo a diferenca nos pixeis
+
+    for(beginCol=0;beginCol<WIDTH;beginCol=beginCol+blockSize){
+        //Monta o bloco a ser procurado usando as linhas e colunas recebidas inicialmente
+        for (i = 0;i < 8;i++) {
+            for (j = 0;j < 8;j++) {
+                if (i<0 || j<0 || i>HEIGHT || j >WIDTH) {//ISSO EVITA QUE ELE VERIFIQUE VALORES DE FORA DA MATRIZ (LIXO)
+                    blocoProcurado[i][j] = 0;
+                }else{
+                    blocoProcurado[i][j] = frameAtual[i + beginLine][j + beginCol];
+                }            
+            }
+        }
+
+        res = procuraNaVizinhanca(beginLine,beginCol,tolerancia);
+
+        if(res==1){
+           blocosEncontrados++;
+ 
+        }
+    }
+   
+    return blocosEncontrados;
+}
 
 int main(int argc, char *argv[]){
 
 
-    if(argc<2)
+    if(argc<3)
 	{
-        printf("ERRO!!! Enter: ./trabalho <filename>");
+        printf("ERRO!!! Enter: ./trabalho <filename> <number of threads>");
         return 1;
     }
     const char *filename = argv[1];
@@ -98,11 +145,26 @@ int main(int argc, char *argv[]){
 		return 1;
 	}
 
-	float frameSize=WIDTH*HEIGHT;
 
-    int blockCounter=0;
-    int blocosIguais=0;
-    int l,c,i,j,ii,jj,pixelDif;
+    outVectors = fopen("outVectors.txt", "w");
+    if(!outVectors)
+	{
+		perror("Error opening yuv image for read");
+		return 1;
+	}
+
+	float frameSize=WIDTH*HEIGHT;
+    int nThreads = atoi(argv[2]);
+    int tid;
+
+ 
+    omp_set_num_threads(nThreads);
+
+    int line;
+    int somaBlocos = 0;
+    int res=0;
+
+
 
     //leitura frame referencia
 
@@ -112,23 +174,19 @@ int main(int argc, char *argv[]){
 
     
 
-    /*
-    fwrite(frameReferencia,sizeof(unsigned char),frameSize,out);
-    fwrite(U,sizeof(unsigned char),frameSize/4,out);
-    fwrite(V,sizeof(unsigned char),frameSize/4,out);
-    */
-
-
-
-    while(!feof(fp)){
+    //while(!feof(fp)){
 
     //LE O QUADRO frameAtual 
     fread(frameAtual, sizeof(unsigned char), frameSize, fp);// LE PRIMEIRO FRAME
     fread(U, sizeof(unsigned char), frameSize/4, fp);// LE PRIMEIRO le o primeiro U
     fread(V, sizeof(unsigned char), frameSize/4, fp);// LE PRIMEIRO FRAME
 
+    //Reescreve o video
+    fwrite(frameReferencia,sizeof(unsigned char),frameSize,out);
+    fwrite(U,sizeof(unsigned char),frameSize/4,out);
+    fwrite(V,sizeof(unsigned char),frameSize/4,out);
+    
 
-    //memcpy(frameAtual,frameReferencia,sizeof(frameReferencia));
  
             /*
 
@@ -137,145 +195,24 @@ int main(int argc, char *argv[]){
             SE ENCONTROU = ANOTA O DESLOCAMENTO
 
             */
-    //INICIA O LOOP PARA PERCORRER TODO O FRAME frameAtual 
-    //PARALELIZANDO AQUI, CADA THREAD FICA COM UM BLOCO PARA PROCURAR EM SUA VIZINHANÇA
-           
-        for(l=0;l<HEIGHT;l=l+8)
+
+        //INICIA O LOOP PARA PERCORRER TODO O FRAME frameAtual 
+        //PARALELIZANDO AQUI, CADA THREAD FICA COM UMA LINHA PARA PROCURAR OS BLOCOS EM SUA VIZINHANÇA
+        #pragma omp parallel for private (res) reduction(+:somaBlocos)
+        for(line=0;line<HEIGHT;line=line+blockSize)
         {
-            for(c=0;c<WIDTH;c=c+8)
-            {
-                //MONTA BLOCO DE REFERENCIA DESTE FRAME frameAtual
-                for(i=0;i<8;i++)
-                {
-                    for(j=0;j<8;j++)
-                    {
-                        blocoProcurado[i][j]=frameAtual[l+i][c+j];
-                        //printf("%d |",blocoProcurado[i][j]);
-                    }
-                    //printf("\n");
-                }
-                //printf("Bloco que desejmos procurar foi montado\n");
-
-
-            //PERCORRE A VIZINHANÇA DO BLOCO frameAtual (1 BLOCO DE OFFSET)
-            //printf("Matriz de Vizinnhança\n");
-            for(i=l-8;i<l+16;i++)
-                {
-                    for(j=c-8;j<c+16;j++)
-                    {
-                        if(i<0 || j<0 || i>HEIGHT || j >WIDTH){//ISSO EVITA QUE ELE PEGUE VALORES DE FORA DA MATRIZ (LIXO)
-                            //matrizVizinha[i][j]=0;
-                        }
-                        else
-                        {
-
-                        //monta bloco de comparação das vizinhanças do bloco de referencia
-                        //ou seja, os blocs na volta do bloco
-                        
-                        for(ii=0;ii<8;ii++){
-                            for(jj=0;jj<8;jj++){
-                                blocoNoFrameRef[ii][jj]=frameReferencia[ii+i][jj+j];
-                                //printf("%d |",blocoNoFrameRef[ii][jj]);
-                            }
-                            //printf("\n");
-                        }
-
-                        //printf("Bloco comparacao montado\n");
-
-                        pixelDif=0;//VALOR DE TOLERANCIA/DIFERENÇA ACEITAVEL ENTRE OS BLOCOS
-                        for(ii=0;ii<8;ii++){
-                            for(jj=0;jj<8;jj++){
-                                //printf("|%d-%d|=%d\n",blocoNoFrameRef[ii][jj],blocoProcurado[ii][jj],abs(blocoNoFrameRef[ii][jj]-blocoProcurado[ii][jj]));
-                                pixelDif=pixelDif+abs(blocoNoFrameRef[ii][jj]-blocoProcurado[ii][jj]);
-                            }
-                            //printf("\n");
-                            //system("pause");
-                        }
-                        //system("pause");
-                        //printf("Diferenca: %d\n",pixelDif);
-                        if(pixelDif<500){//SE A DIFERENÇA FOR MENOR QUE 500, CONSIDERA OS BLOCOS POSSIVELMENTE IGUAIS
-                            printf("Blocos possivelmente iguais\n");
-                            blocosIguais++;
-                            //system("pause");
-                        }
-
-                        blockCounter++;
-                
-
-                        }
-
-                    }
-                    //printf("\n");
-                }
-                printf("Bloco nao encontrado na vizinhanca, %d blocos analizados\n",blockCounter/8);
-                blockCounter=0;
-                //system("pause");
-            }
+            res = procuraBlocoNaLinha(line);
+            somaBlocos += res;
         }
-        printf("Blocos iguais : %d" ,blocosIguais);
-        blocosIguais=0;
-        system("pause");
-        printf("Novo Frame!!\n");
-    }
 
-
-/*
-                    for(ii=0;ii<8;ii++){
-                        for(jj=0;jj<8;jj++){
-                            blocoNoFrameRef[ii][jj]=frameAtual[i][j];
-                            printf("%d . %d |",blocoNoFrameRef[ii][jj],frameAtual[i][j]);
-                        }
-                        printf("\n");
-                    }
-                    //system("pause");
-
-
-                    if(memcmp(blocoProcurado,blocoNoFrameRef,sizeof(blocoNoFrameRef))==0){
-                        printf("Blocos sao iguais");
-                        //system("pause");
-                    }
-                    else
-                    {
-                        //printf("!");
-                    }
-*/
-
-
-    /*
-    fwrite(frameAtual,sizeof(unsigned char),frameSize,out);
-    fwrite(U,sizeof(unsigned char),frameSize/4,out);
-    fwrite(V,sizeof(unsigned char),frameSize/4,out);
-    */
-
-   
+        printf("Blocos Iguais: %d",somaBlocos);
     
+    //}
 
-    //comparação entre referencia e frameAtual
-    /* 
-    printf("Primeiro bloco 8x8 do quadro de referencia copiado para area de comparação");
-    for(i=0;i<8;i++){
-        printf("\n");
-        for(j=0;j<8;j++){
-            //printf("[%d/%d=%d]  ",i,j,Y[i*HEIGHT+j]);
-            blocoProcurado[i][j]=frameReferencia[i][j];
-            printf("%d ",blocoProcurado[i][j]);
-        }
-    }
 
-   printf("\n");
-    printf("primeiro Bloco 8x8 do quadro frameAtual\n");
 
-    for(i=0;i<8;i++){
-        printf("\n");
-        for(j=0;j<8;j++){
-            printf("%d ",frameAtual[i][j]);
-        }
-    }
-
-*/
-
-      
     fclose(fp);
     fclose(out);
+    fclose(outVectors);
     return 1;
  }  

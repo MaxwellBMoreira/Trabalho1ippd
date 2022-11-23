@@ -93,7 +93,7 @@ int procuraBlocoNaLinha(int beginLine){
     int blocosEncontrados=0;
     int res=0;
 
-    tolerancia = 1.5;//define a tolerancia no erro relativo a diferenca nos pixeis
+    tolerancia = 1.3;//define a tolerancia no erro relativo a diferenca nos pixeis
 
     for(beginCol=0;beginCol<WIDTH;beginCol=beginCol+blockSize){
         //Monta o bloco a ser procurado usando as linhas e colunas recebidas inicialmente

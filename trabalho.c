@@ -21,17 +21,18 @@ unsigned char frameReferencia[WIDTH][HEIGHT];
 unsigned char frameAtual[WIDTH][HEIGHT];
 unsigned char U[WIDTH/2][HEIGHT/2];
 unsigned char V[WIDTH/2][HEIGHT/2];
-unsigned char blocoProcurado[blockSize][blockSize];
-unsigned char blocoNoFrameRef[blockSize][blockSize];
-unsigned char matrizVizinha[24][24];
+
+
+//unsigned char matrizVizinha[24][24];
 FILE *outVectors;
 
 
 
-int procuraNaVizinhanca(int beginLine, int beginCol, float tolerancia){
+int procuraNaVizinhanca(unsigned char blocoProcurado[blockSize][blockSize],int beginLine, int beginCol, float tolerancia){
 
     int linJanViz,colJanViz,i,j;
     float somaErros,erroMedioGeral;
+    unsigned char blocoNoFrameRef[blockSize][blockSize];
 
     for (linJanViz = beginLine - 8;linJanViz < beginLine + 16;linJanViz++)//loop que percorre a janela de vizinhan�a, definida por 1 bloco inteiro ao redor do procurado
         {
@@ -92,6 +93,7 @@ int procuraBlocoNaLinha(int beginLine){
     int beginCol;
     int blocosEncontrados=0;
     int res=0;
+    unsigned char blocoProcurado[blockSize][blockSize];
 
     tolerancia = 1.3;//define a tolerancia no erro relativo a diferenca nos pixeis
 
@@ -107,11 +109,10 @@ int procuraBlocoNaLinha(int beginLine){
             }
         }
 
-        res = procuraNaVizinhanca(beginLine,beginCol,tolerancia);
+        res = procuraNaVizinhanca(blocoProcurado,beginLine,beginCol,tolerancia);
 
         if(res==1){
            blocosEncontrados++;
- 
         }
     }
    
@@ -157,6 +158,9 @@ int main(int argc, char *argv[]){
     int nThreads = atoi(argv[2]);
     int tid;
 
+    clock_t t;
+    double time_taken;
+
  
     omp_set_num_threads(nThreads);
 
@@ -196,6 +200,10 @@ int main(int argc, char *argv[]){
 
             */
 
+
+        t = clock();//inicia o timer;
+
+
         //INICIA O LOOP PARA PERCORRER TODO O FRAME frameAtual 
         //PARALELIZANDO AQUI, CADA THREAD FICA COM UMA LINHA PARA PROCURAR OS BLOCOS EM SUA VIZINHANÇA
         #pragma omp parallel for private (res) reduction(+:somaBlocos)
@@ -205,7 +213,10 @@ int main(int argc, char *argv[]){
             somaBlocos += res;
         }
 
-        printf("Blocos Iguais: %d",somaBlocos);
+        t = clock() - t;
+        time_taken = ((double)t) / CLOCKS_PER_SEC;
+
+        printf("Total de blocos iguais encontrados: %d\n Tempo decorrido: %f segundos \n", somaBlocos,time_taken);
     
     //}
 

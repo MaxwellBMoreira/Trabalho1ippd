@@ -213,12 +213,14 @@ int main(int argc, char *argv[]){
             somaBlocos += res;
         }
 
-        t = clock() - t;
-        time_taken = ((double)t) / CLOCKS_PER_SEC;
 
-        printf("Total de blocos iguais encontrados: %d\n Tempo decorrido: %f segundos \n", somaBlocos,time_taken);
-    
     //}
+
+    t = clock() - t;
+    time_taken = ((double)t) / CLOCKS_PER_SEC;
+
+    printf("Total de blocos iguais encontrados: %d\n Tempo decorrido: %f segundos \n", somaBlocos,time_taken);
+    
 
 
 
